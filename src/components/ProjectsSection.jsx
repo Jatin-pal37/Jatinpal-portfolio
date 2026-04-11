@@ -9,7 +9,7 @@ const projects = [
     image: "/projects/project1.png",
     tags: ["React", "TailwindCSS", "Daisy UI" ],
     demoUrl: "#",
-    githubUrl: "https://github.com/Jatin-pal37/Jatin-pal-Portfolio",
+    githubUrl: "https://github.com/Jatin-pal37/Jatinpal-portfolio",
   },
   {
     id: 2,

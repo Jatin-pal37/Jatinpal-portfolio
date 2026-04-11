@@ -1,5 +1,14 @@
 import { GITHUB_URL, LINKEDIN_URL } from "@/constants/profile";
-import { Code2, Globe2, Mail, MapPin, Phone, Send } from "lucide-react";
+import {
+  ClipboardCheck,
+  Code2,
+  Copy,
+  Globe2,
+  Mail,
+  MapPin,
+  Phone,
+  Send,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
@@ -7,31 +16,85 @@ import { useState } from "react";
 export const ContactSection = () => {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [emailCopied, setEmailCopied] = useState(false);
   const contactEmail = "paljatin681@gmail.com";
 
-  const handleSubmit = (e) => {
+  const copyContactEmail = async () => {
+    try {
+      await navigator.clipboard.writeText(contactEmail);
+      setEmailCopied(true);
+      toast({ title: "Email copied", description: "Paste it in your mail app if you need it." });
+      window.setTimeout(() => setEmailCopied(false), 2000);
+    } catch {
+      toast({
+        variant: "destructive",
+        title: "Could not copy",
+        description: "Select the address and copy manually.",
+      });
+    }
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    setIsSubmitting(true);
+    const accessKey = import.meta.env.VITE_WEB3FORMS_ACCESS_KEY;
+    if (!accessKey) {
+      toast({
+        variant: "destructive",
+        title: "Contact form not configured",
+        description:
+          "Set VITE_WEB3FORMS_ACCESS_KEY in .env (Web3Forms), then restart the dev server.",
+      });
+      return;
+    }
 
-    const formData = new FormData(e.currentTarget);
+    setIsSubmitting(true);
+    const form = e.currentTarget;
+    const formData = new FormData(form);
     const name = String(formData.get("name") || "").trim();
     const email = String(formData.get("email") || "").trim();
     const message = String(formData.get("message") || "").trim();
 
-    const subject = encodeURIComponent(`Portfolio Contact from ${name}`);
-    const body = encodeURIComponent(
-      `Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`
-    );
+    try {
+      const res = await fetch("https://api.web3forms.com/submit", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          access_key: accessKey,
+          subject: `Portfolio contact from ${name}`,
+          from_name: name,
+          email,
+          replyto: email,
+          message: `From: ${name} <${email}>\n\n${message}`,
+        }),
+      });
 
-    window.location.href = `mailto:${contactEmail}?subject=${subject}&body=${body}`;
+      const data = await res.json().catch(() => ({}));
 
-    toast({
-      title: "Email draft opened",
-      description: "Your email app should open with the message details.",
-    });
-    setIsSubmitting(false);
-    e.currentTarget.reset();
+      if (!res.ok || data.success === false) {
+        throw new Error(
+          typeof data.message === "string" ? data.message : "Request failed"
+        );
+      }
+
+      toast({
+        title: "Message sent",
+        description: "It was delivered to my inbox. I'll reply soon.",
+      });
+      form.reset();
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Could not send",
+        description:
+          err instanceof Error ? err.message : "Please try again shortly.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
   return (
     <section id="contact" className="py-24 px-4 relative bg-secondary/30">
@@ -60,14 +123,26 @@ export const ContactSection = () => {
                 <div className="p-3 rounded-full bg-primary/10">
                   <Mail className="h-6 w-6 text-primary" />{" "}
                 </div>
-                <div>
+                <div className="min-w-0">
                   <h4 className="font-medium"> Email</h4>
-                  <a
-                    href={`mailto:${contactEmail}`}
-                    className="text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    {contactEmail}
-                  </a>
+                  <div className="flex flex-wrap items-center gap-2 mt-1">
+                    <span className="text-muted-foreground break-all">
+                      {contactEmail}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={copyContactEmail}
+                      className="inline-flex shrink-0 items-center gap-1 rounded-md border border-input bg-background px-2 py-1 text-xs font-medium text-foreground hover:bg-accent transition-colors"
+                      aria-label="Copy email address"
+                    >
+                      {emailCopied ? (
+                        <ClipboardCheck className="h-3.5 w-3.5 text-primary" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                      {emailCopied ? "Copied" : "Copy"}
+                    </button>
+                  </div>
                 </div>
               </div>
               <div className="flex items-start space-x-4">
@@ -130,6 +205,9 @@ export const ContactSection = () => {
 
           <div className="bg-card p-8 rounded-lg shadow-xs">
             <h3 className="text-2xl font-semibold mb-6">Send a Message</h3>
+            <p className="text-sm text-muted-foreground mb-6 -mt-2">
+              Sends straight to my inbox; your email app does not open.
+            </p>
 
             <form className="space-y-6" onSubmit={handleSubmit}>
               <div>
