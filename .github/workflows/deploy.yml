@@ -1,0 +1,67 @@
+# Production deploy: build on GitHub Actions, sync static files to EC2 over SSH.
+#
+# Repository secrets (Settings → Secrets and variables → Actions):
+#   EC2_HOST              — public IPv4/DNS of the instance
+#   EC2_USER             — SSH user (e.g. ubuntu, ec2-user)
+#   EC2_SSH_PRIVATE_KEY  — full PEM private key for that user (same key pair as the instance)
+#   EC2_REMOTE_PATH      — optional; web root on the server (default below if unset)
+#   VITE_WEB3FORMS_ACCESS_KEY — optional; required at build time for the contact form
+#
+# On EC2: install nginx (or similar), point server root at EC2_REMOTE_PATH, and ensure the
+# deploy user can write there (e.g. sudo chown -R ubuntu:ubuntu /var/www/html).
+
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-ec2-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          VITE_WEB3FORMS_ACCESS_KEY: ${{ secrets.VITE_WEB3FORMS_ACCESS_KEY }}
+
+      - name: Start ssh-agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+
+      - name: Sync dist to EC2
+        env:
+          DEPLOY_HOST: ${{ secrets.EC2_HOST }}
+          DEPLOY_USER: ${{ secrets.EC2_USER }}
+          DEPLOY_PATH: ${{ secrets.EC2_REMOTE_PATH }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DEPLOY_HOST:-}" ] || [ -z "${DEPLOY_USER:-}" ]; then
+            echo "Missing EC2_HOST or EC2_USER secrets."
+            exit 1
+          fi
+          DEST="${DEPLOY_PATH:-/var/www/html}"
+          rsync -avz --delete \
+            -e "ssh -o StrictHostKeyChecking=accept-new" \
+            dist/ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEST}/"
