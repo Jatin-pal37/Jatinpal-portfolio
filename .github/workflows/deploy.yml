@@ -48,13 +48,12 @@ jobs:
       - name: Start ssh-agent
         uses: webfactory/ssh-agent@v0.9.0
         with:
-          ssh-private-key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
 
       - name: Sync dist to EC2
         env:
           DEPLOY_HOST: ${{ secrets.EC2_HOST }}
-          DEPLOY_USER: ${{ secrets.EC2_USER }}
-          DEPLOY_PATH: ${{ secrets.EC2_REMOTE_PATH }}
+          DEPLOY_USER: ${{ secrets.EC2_USERNAME }}
         run: |
           set -euo pipefail
           if [ -z "${DEPLOY_HOST:-}" ] || [ -z "${DEPLOY_USER:-}" ]; then
