@@ -18,7 +18,7 @@ const projects = [
       "Built a real-time messaging/collaboration platform with instant communication.",
     image: "/projects/project2.png",
     tags: ["TypeScript", "React","TailwindCSS", "Daisy UI", "Node.js", "Express", "Socket.IO", "MongoDB", "JWT"],
-    demoUrl: "#",
+    demoUrl: "https://chatapp.jatinpal.in/login",
     githubUrl: "https://github.com/Jatin-pal37/Chatapp",
   },
   {
